@@ -9,12 +9,17 @@
 <body>
     <header>
         <h2>Your Dashboard</h2>
-        <button onclick="logout()">Logout</button>
+        <button onclick="logout()" style="background-color: #ff6b6b; cursor: pointer;">Logout</button>
     </header>
+    <nav style="margin: 1rem 0; text-align: center;">
+        <a href="/" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Dashboard</a>
+        <a href="/#goals" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Goals</a>
+        <a href="/#alcohol" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Consumption</a>
+        <a href="/#assessments" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Self-Assessment</a>
+    </nav>
     <section id="userData">
-        <h3>Metrics and Insights</h3>
-        <!-- JavaScript will dynamically load charts and metrics here -->
+        <p style="text-align: center;">Loading your data...</p>
     </section>
-    <script src="assets/js/dashboard.js"></script>
+    <script src="/assets/js/dashboard.js"></script>
 </body>
 </html>

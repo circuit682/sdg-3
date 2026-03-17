@@ -4,6 +4,7 @@ const BASE_URL = 'http://localhost:3000/api';
 // Display message function
 function showMessage(message, isSuccess = true) {
     const messageDiv = document.getElementById('message');
+    if (!messageDiv) return;
     messageDiv.style.display = 'block';
     messageDiv.style.color = isSuccess ? 'green' : 'red';
     messageDiv.innerText = message;
@@ -57,28 +58,47 @@ async function handleRegister(event) {
 }
 
 // Event listener for the registration form
-document.getElementById('registerForm').onsubmit = handleRegister;
+const registerForm = document.getElementById('registerForm');
+if (registerForm) {
+    registerForm.addEventListener('submit', handleRegister);
+}
 
-document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();  // Prevent form from submitting normally
-    const username = document.getElementById("email").value;  // Assuming email input is used for username
-    const password = document.getElementById("password").value;
+// Handle login form submission
+async function handleLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
     try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch(`${BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })  // Match the fields expected by the backend
+            body: JSON.stringify({ username: email, password })
         });
         const data = await response.json();
 
-        if (data.token) {  // On successful login, expect a token
-            localStorage.setItem("token", data.token);  // Store JWT token in localStorage
-            window.location.href = "dashboard.html";  // Redirect on successful login
+        if (response.ok && data.token) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('userId', data.userId);
+            window.location.href = '/';
         } else {
-            alert("Login failed: " + (data.error || "Unknown error"));
+            showMessage(data.error || 'Login failed', false);
         }
     } catch (error) {
-        console.error("Error logging in:", error);
+        console.error('Error logging in:', error);
+        showMessage('An error occurred during login', false);
     }
-});
+}
+
+// Attach login form listener
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
+}
+
+// Logout function
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    window.location.href = '/';
+}
