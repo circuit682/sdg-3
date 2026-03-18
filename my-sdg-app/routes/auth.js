@@ -29,14 +29,16 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await Users.findOne({ where: { username } });
+    // Username is actually the email sent from frontend
+    const user = await Users.findOne({ where: { email: username } });
     if (user && await bcrypt.compare(password, user.password)) {
-      const token = jwt.sign({ userId: user.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ message: 'Login successful', token, userId: user.user_id });
+      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.json({ message: 'Login successful', token, userId: user.id });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
     }
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Failed to login' });
   }
 });
