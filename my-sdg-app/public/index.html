@@ -3,20 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/css/style.css">
-    <title>SDG Alcohol Consumption Project</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <title>SDG 3 Wellness Studio</title>
 </head>
 <body>
-    <header>
-        <h1>Welcome to the SDG Alcohol Awareness App</h1>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+
+    <header class="hero-header">
+        <p class="kicker">Sustainable Development Goal 3</p>
         <nav>
-            <a href="login.html">Login</a>
-            <a href="register.html">Register</a>
+            <a href="/login">Login</a>
+            <a href="/register">Register</a>
         </nav>
     </header>
-    <main>
-        <p>Track your goals, view insights, and stay aware of your progress.</p>
-        <button onclick="window.location.href='login.html'">Get Started</button>
+
+    <main class="hero">
+        <section class="hero-copy">
+            <h1>Own Your Well-Being, One Data Point at a Time.</h1>
+            <p>Track behavior changes, monitor self-assessment trends, and build healthier routines with clarity and confidence.</p>
+            <div class="hero-cta">
+                <a class="btn solid" href="/register">Create account</a>
+                <a class="btn ghost" href="/login">I already have an account</a>
+            </div>
+        </section>
+
+        <section class="hero-stats" aria-label="Wellness value highlights">
+            <article>
+                <h2>Goals First</h2>
+                <p>Set goals that are practical, measurable, and personal.</p>
+            </article>
+            <article>
+                <h2>Assessment Driven</h2>
+                <p>Visualize assessment scores over time and catch risk early.</p>
+            </article>
+            <article>
+                <h2>Actionable Insights</h2>
+                <p>Turn patterns into decisions with visual charts on your dashboard.</p>
+            </article>
+        </section>
     </main>
 </body>
 </html>

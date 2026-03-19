@@ -1,84 +1,248 @@
-// dashboard.js
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = `${window.location.origin}/api`;
+let goalsChart;
+let assessmentsChart;
 
-// Check if user is authenticated
-function checkAuth() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-        window.location.href = '/login';
-    }
-    return token;
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
-// Logout function
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    window.location.href = '/';
-}
-
-// Load user data
-async function loadUserData() {
+async function fetchJson(endpoint, token) {
     try {
-        const token = checkAuth();
-        const userId = localStorage.getItem('userId');
-
-        // Fetch user profile
-        const userResponse = await fetch(`${BASE_URL}/users/${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`${BASE_URL}${endpoint}`, {
+            headers: { Authorization: `Bearer ${token}` }
         });
-        
-        if (!userResponse.ok) throw new Error('Failed to load user data');
-        const userData = await userResponse.json();
 
-        // Fetch alcohol consumption data
-        const consumptionResponse = await fetch(`${BASE_URL}/alcohol-consumption`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const consumptionData = consumptionResponse.ok ? await consumptionResponse.json() : [];
+        const body = await response.json();
 
-        // Fetch goals
-        const goalsResponse = await fetch(`${BASE_URL}/goals`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const goalsData = goalsResponse.ok ? await goalsResponse.json() : [];
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                message: body?.message || 'Request failed',
+                data: null
+            };
+        }
 
-        // Display metrics
-        displayMetrics(userData, consumptionData, goalsData);
+        return {
+            ok: true,
+            status: response.status,
+            message: body?.message || 'Request successful',
+            data: Object.prototype.hasOwnProperty.call(body, 'data') ? body.data : body
+        };
     } catch (error) {
-        console.error('Error loading user data:', error);
-        document.getElementById('userData').innerHTML = '<p style="color: red;">Error loading dashboard data. Please refresh the page.</p>';
+        console.error(`Failed to fetch ${endpoint}:`, error);
+        return { ok: false, status: 0, message: 'Network error', data: null };
     }
 }
 
-// Display metrics on the dashboard
-function displayMetrics(user, consumption, goals) {
-    const userDataDiv = document.getElementById('userData');
-    if (!userDataDiv) return;
+function setActiveNav() {
+    const links = document.querySelectorAll('.main-nav a');
+    const hash = window.location.hash || '#overview';
+    links.forEach((link) => {
+        link.classList.toggle('active', link.getAttribute('href') === hash);
+    });
+}
 
-    const consumptionCount = consumption.length || 0;
-    const goalsCount = goals.length || 0;
-
-    userDataDiv.innerHTML = `
-        <h3>Welcome, ${user.name || 'User'}!</h3>
-        <div class="metric">
-            <i class='bx bx-user'></i>
-            <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
-        </div>
-        <div class="metric">
-            <i class='bx bx-bottle'></i>
-            <p><strong>Consumption Records:</strong> ${consumptionCount}</p>
-        </div>
-        <div class="metric">
-            <i class='bx bx-target-lock'></i>
-            <p><strong>Active Goals:</strong> ${goalsCount}</p>
-        </div>
-        <div class="metric">
-            <i class='bx bx-calendar'></i>
-            <p><strong>Member Since:</strong> ${new Date(user.createdAt).toLocaleDateString() || 'N/A'}</p>
-        </div>
+function metricCard(label, value) {
+    return `
+        <article class="metric-card">
+            <p class="metric-label">${escapeHtml(label)}</p>
+            <p class="metric-value">${escapeHtml(value)}</p>
+        </article>
     `;
 }
 
-// Load user data when the page is ready
-document.addEventListener('DOMContentLoaded', loadUserData);
+function safeDate(dateValue) {
+    const date = new Date(dateValue);
+    return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+}
+
+function normalizeArray(result) {
+    return result.ok && Array.isArray(result.data) ? result.data : [];
+}
+
+function sectionWithItems(title, items, mapItem, chartId) {
+    if (!items.length) {
+        return `
+            <h2 class="section-title">${escapeHtml(title)}</h2>
+            <p class="empty-state">No ${escapeHtml(title.toLowerCase())} found yet.</p>
+        `;
+    }
+
+    return `
+        <h2 class="section-title">${escapeHtml(title)}</h2>
+        ${chartId ? `<div class="chart-wrap"><canvas id="${chartId}" aria-label="${escapeHtml(title)} chart"></canvas></div>` : ''}
+        <ul class="item-list">
+            ${items.map(mapItem).join('')}
+        </ul>
+    `;
+}
+
+function renderGoalsChart(goals) {
+    const chartCanvas = document.getElementById('goalsChart');
+    if (!chartCanvas || typeof Chart === 'undefined') {
+        return;
+    }
+
+    const statusMap = goals.reduce((acc, goal) => {
+        const key = (goal.status || 'unknown').toLowerCase();
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+
+    if (goalsChart) {
+        goalsChart.destroy();
+    }
+
+    goalsChart = new Chart(chartCanvas, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(statusMap).map((s) => s[0].toUpperCase() + s.slice(1)),
+            datasets: [{
+                data: Object.values(statusMap),
+                backgroundColor: ['#2ec4b6', '#ff7f50', '#f4d35e', '#457b9d']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+function renderAssessmentsChart(assessments) {
+    const chartCanvas = document.getElementById('assessmentsChart');
+    if (!chartCanvas || typeof Chart === 'undefined') {
+        return;
+    }
+
+    const recent = assessments
+        .slice()
+        .sort((a, b) => new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt))
+        .slice(-8);
+
+    if (assessmentsChart) {
+        assessmentsChart.destroy();
+    }
+
+    assessmentsChart = new Chart(chartCanvas, {
+        type: 'line',
+        data: {
+            labels: recent.map((item) => safeDate(item.date || item.createdAt)),
+            datasets: [{
+                label: 'Assessment Score',
+                data: recent.map((item) => Number(item.scores || item.score || 0)),
+                borderColor: '#ff7f50',
+                pointBackgroundColor: '#124559',
+                borderWidth: 3,
+                fill: false,
+                tension: 0.25
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+}
+
+async function loadDashboard() {
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+
+    if (!token || !userId) {
+        window.location.href = '/login';
+        return;
+    }
+
+    const [userResult, goalsResult, consumptionResult, assessmentsResult, resourcesResult] = await Promise.all([
+        fetchJson(`/users/${userId}`, token),
+        fetchJson('/goals', token),
+        fetchJson('/alcohol-consumption', token),
+        fetchJson('/self-assessment', token),
+        fetchJson('/resources', token)
+    ]);
+
+    if (!userResult.ok) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        window.location.href = '/login';
+        return;
+    }
+
+    const user = userResult.data || {};
+    const goals = normalizeArray(goalsResult);
+    const consumption = normalizeArray(consumptionResult);
+    const assessments = normalizeArray(assessmentsResult);
+    const resources = normalizeArray(resourcesResult);
+
+    document.getElementById('overview').innerHTML = `
+        <h2 class="section-title">Welcome back, ${escapeHtml(user.name || 'friend')}</h2>
+        <p>Email: ${escapeHtml(user.email || 'N/A')} | Member since ${escapeHtml(safeDate(user.createdAt))}</p>
+    `;
+
+    document.getElementById('summaryCards').innerHTML = [
+        metricCard('Profile', user.name || 'User'),
+        metricCard('Goals', goals.length),
+        metricCard('Consumption Logs', consumption.length),
+        metricCard('Assessments', assessments.length)
+    ].join('');
+
+    document.getElementById('goals').innerHTML = sectionWithItems('Goals', goals.slice(0, 6), (goal) => `
+        <li>
+            <strong>${escapeHtml(goal.title || goal.goal_title || 'Goal')}</strong><br>
+            <span>Status: ${escapeHtml(goal.status || 'Not set')}</span>
+        </li>
+    `, 'goalsChart');
+
+    document.getElementById('alcohol').innerHTML = sectionWithItems('Consumption', consumption.slice(0, 5), (entry) => `
+        <li>
+            <strong>${escapeHtml(entry.amount || 'Entry')}</strong><br>
+            <span>${escapeHtml(safeDate(entry.date || entry.createdAt))}</span>
+        </li>
+    `);
+
+    document.getElementById('assessments').innerHTML = sectionWithItems('Self-Assessment', assessments.slice(0, 6), (assessment) => `
+        <li>
+            <strong>Risk: ${escapeHtml(assessment.risk_level || 'N/A')}</strong><br>
+            <span>Score: ${escapeHtml(assessment.scores || assessment.score || 'N/A')}</span>
+        </li>
+    `, 'assessmentsChart');
+
+    document.getElementById('resources').innerHTML = sectionWithItems('Resources', resources.slice(0, 5), (resource) => `
+        <li>
+            <strong>${escapeHtml(resource.title || 'Resource')}</strong><br>
+            <span>${escapeHtml(resource.description || resource.link || 'No details available')}</span>
+        </li>
+    `);
+
+    renderGoalsChart(goals);
+    renderAssessmentsChart(assessments);
+}
+
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    window.location.href = '/login';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const logoutButton = document.getElementById('logoutBtn');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', logout);
+    }
+
+    setActiveNav();
+    window.addEventListener('hashchange', setActiveNav);
+    loadDashboard();
+});

@@ -1,54 +1,82 @@
 const express = require('express');
-const router = express.Router();
 const { Goals } = require('../models');
+const authenticate = require('../middleware/authenticate');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Get all goals
+const router = express.Router();
+
+router.use(authenticate);
+
 router.get('/', async (req, res) => {
   try {
-    const goals = await Goals.findAll();
-    res.json(goals);
+    const goals = await Goals.findAll({
+      where: { user_id: req.userId },
+      order: [['createdAt', 'DESC']]
+    });
+    return sendSuccess(res, 'Goals retrieved successfully', goals);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve goals' });
+    return sendError(res, 'Failed to retrieve goals');
   }
 });
 
-// Get a single goal by ID
 router.get('/:id', async (req, res) => {
   try {
-    const goal = await Goals.findByPk(req.params.id);
-    goal ? res.json(goal) : res.status(404).json({ error: 'Goal not found' });
+    const goal = await Goals.findOne({
+      where: { goal_id: req.params.id, user_id: req.userId }
+    });
+
+    if (!goal) {
+      return sendError(res, 'Goal not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Goal retrieved successfully', goal);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve goal' });
+    return sendError(res, 'Failed to retrieve goal');
   }
 });
 
-// Create a new goal
 router.post('/', async (req, res) => {
   try {
-    const goal = await Goals.create(req.body);
-    res.status(201).json(goal);
+    const goalPayload = {
+      ...req.body,
+      user_id: req.userId
+    };
+
+    const goal = await Goals.create(goalPayload);
+    return sendSuccess(res, 'Goal created successfully', goal, 201);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create goal' });
+    return sendError(res, 'Failed to create goal');
   }
 });
 
-// Update a goal
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await Goals.update(req.body, { where: { goal_id: req.params.id } });
-    updated ? res.json({ message: 'Goal updated' }) : res.status(404).json({ error: 'Goal not found' });
+    const [updatedCount] = await Goals.update(req.body, {
+      where: { goal_id: req.params.id, user_id: req.userId }
+    });
+
+    if (!updatedCount) {
+      return sendError(res, 'Goal not found', 404, 'NOT_FOUND');
+    }
+
+    const goal = await Goals.findOne({ where: { goal_id: req.params.id, user_id: req.userId } });
+    return sendSuccess(res, 'Goal updated successfully', goal);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update goal' });
+    return sendError(res, 'Failed to update goal');
   }
 });
 
-// Delete a goal
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Goals.destroy({ where: { goal_id: req.params.id } });
-    deleted ? res.json({ message: 'Goal deleted' }) : res.status(404).json({ error: 'Goal not found' });
+    const deleted = await Goals.destroy({ where: { goal_id: req.params.id, user_id: req.userId } });
+
+    if (!deleted) {
+      return sendError(res, 'Goal not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Goal deleted successfully', null);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete goal' });
+    return sendError(res, 'Failed to delete goal');
   }
 });
 

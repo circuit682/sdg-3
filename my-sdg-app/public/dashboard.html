@@ -3,23 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/css/dashboard.css">
-    <title>Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/dashboard.css">
+    <title>Wellness Dashboard</title>
 </head>
 <body>
-    <header>
-        <h2>Your Dashboard</h2>
-        <button onclick="logout()" style="background-color: #ff6b6b; cursor: pointer;">Logout</button>
+    <div class="bg-glow"></div>
+    <header class="topbar">
+        <div>
+            <p class="kicker">SDG 3 Well-Being Hub</p>
+            <h1>Wellness Dashboard</h1>
+        </div>
+        <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
     </header>
-    <nav style="margin: 1rem 0; text-align: center;">
-        <a href="/" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Dashboard</a>
-        <a href="/#goals" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Goals</a>
-        <a href="/#alcohol" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Consumption</a>
-        <a href="/#assessments" style="margin: 0 1rem; text-decoration: none; color: #004c99; font-weight: bold;">Self-Assessment</a>
+
+    <nav class="main-nav" aria-label="Dashboard sections">
+        <a href="#overview">Overview</a>
+        <a href="#goals">Goals</a>
+        <a href="#alcohol">Consumption</a>
+        <a href="#assessments">Self-Assessment</a>
+        <a href="#resources">Resources</a>
     </nav>
-    <section id="userData">
-        <p style="text-align: center;">Loading your data...</p>
-    </section>
+
+    <main id="dashboardRoot" class="dashboard-root" aria-live="polite">
+        <section id="overview" class="panel hero-panel">
+            <h2>Loading your dashboard...</h2>
+            <p>We are gathering your latest progress data.</p>
+        </section>
+        <section class="card-grid" id="summaryCards"></section>
+        <section id="goals" class="panel"></section>
+        <section id="alcohol" class="panel"></section>
+        <section id="assessments" class="panel"></section>
+        <section id="resources" class="panel"></section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/assets/js/dashboard.js"></script>
 </body>
 </html>

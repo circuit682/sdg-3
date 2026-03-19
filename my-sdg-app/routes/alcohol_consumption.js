@@ -1,54 +1,84 @@
 const express = require('express');
-const router = express.Router();
 const { Alcohol_Consumption } = require('../models');
+const authenticate = require('../middleware/authenticate');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Get all alcohol consumption records
+const router = express.Router();
+
+router.use(authenticate);
+
 router.get('/', async (req, res) => {
   try {
-    const records = await Alcohol_Consumption.findAll();
-    res.json(records);
+    const records = await Alcohol_Consumption.findAll({
+      where: { user_id: req.userId },
+      order: [['date', 'DESC']]
+    });
+    return sendSuccess(res, 'Consumption records retrieved successfully', records);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve records' });
+    return sendError(res, 'Failed to retrieve records');
   }
 });
 
-// Get a single alcohol consumption record by ID
 router.get('/:id', async (req, res) => {
   try {
-    const record = await Alcohol_Consumption.findByPk(req.params.id);
-    record ? res.json(record) : res.status(404).json({ error: 'Record not found' });
+    const record = await Alcohol_Consumption.findOne({
+      where: { consumption_id: req.params.id, user_id: req.userId }
+    });
+
+    if (!record) {
+      return sendError(res, 'Record not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Consumption record retrieved successfully', record);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve record' });
+    return sendError(res, 'Failed to retrieve record');
   }
 });
 
-// Create a new alcohol consumption record
 router.post('/', async (req, res) => {
   try {
-    const record = await Alcohol_Consumption.create(req.body);
-    res.status(201).json(record);
+    const payload = {
+      ...req.body,
+      user_id: req.userId
+    };
+    const record = await Alcohol_Consumption.create(payload);
+    return sendSuccess(res, 'Consumption record created successfully', record, 201);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create record' });
+    return sendError(res, 'Failed to create record');
   }
 });
 
-// Update an alcohol consumption record
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await Alcohol_Consumption.update(req.body, { where: { consumption_id: req.params.id } });
-    updated ? res.json({ message: 'Record updated' }) : res.status(404).json({ error: 'Record not found' });
+    const [updatedCount] = await Alcohol_Consumption.update(req.body, {
+      where: { consumption_id: req.params.id, user_id: req.userId }
+    });
+
+    if (!updatedCount) {
+      return sendError(res, 'Record not found', 404, 'NOT_FOUND');
+    }
+
+    const record = await Alcohol_Consumption.findOne({
+      where: { consumption_id: req.params.id, user_id: req.userId }
+    });
+
+    return sendSuccess(res, 'Consumption record updated successfully', record);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update record' });
+    return sendError(res, 'Failed to update record');
   }
 });
 
-// Delete an alcohol consumption record
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Alcohol_Consumption.destroy({ where: { consumption_id: req.params.id } });
-    deleted ? res.json({ message: 'Record deleted' }) : res.status(404).json({ error: 'Record not found' });
+    const deleted = await Alcohol_Consumption.destroy({ where: { consumption_id: req.params.id, user_id: req.userId } });
+
+    if (!deleted) {
+      return sendError(res, 'Record not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Consumption record deleted successfully', null);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete record' });
+    return sendError(res, 'Failed to delete record');
   }
 });
 

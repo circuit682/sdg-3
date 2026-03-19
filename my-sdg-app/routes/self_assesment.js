@@ -1,54 +1,82 @@
 const express = require('express');
-const router = express.Router();
 const { Self_Assessment } = require('../models');
+const authenticate = require('../middleware/authenticate');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Get all self assessments
+const router = express.Router();
+
+router.use(authenticate);
+
 router.get('/', async (req, res) => {
   try {
-    const assessments = await Self_Assessment.findAll();
-    res.json(assessments);
+    const assessments = await Self_Assessment.findAll({
+      where: { user_id: req.userId },
+      order: [['date', 'DESC']]
+    });
+    return sendSuccess(res, 'Assessments retrieved successfully', assessments);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve assessments' });
+    return sendError(res, 'Failed to retrieve assessments');
   }
 });
 
-// Get a single self assessment by ID
 router.get('/:id', async (req, res) => {
   try {
-    const assessment = await Self_Assessment.findByPk(req.params.id);
-    assessment ? res.json(assessment) : res.status(404).json({ error: 'Assessment not found' });
+    const assessment = await Self_Assessment.findOne({
+      where: { assessment_id: req.params.id, user_id: req.userId }
+    });
+
+    if (!assessment) {
+      return sendError(res, 'Assessment not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Assessment retrieved successfully', assessment);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve assessment' });
+    return sendError(res, 'Failed to retrieve assessment');
   }
 });
 
-// Create a new self assessment
 router.post('/', async (req, res) => {
   try {
-    const assessment = await Self_Assessment.create(req.body);
-    res.status(201).json(assessment);
+    const assessmentPayload = {
+      ...req.body,
+      user_id: req.userId
+    };
+
+    const assessment = await Self_Assessment.create(assessmentPayload);
+    return sendSuccess(res, 'Assessment created successfully', assessment, 201);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create assessment' });
+    return sendError(res, 'Failed to create assessment');
   }
 });
 
-// Update a self assessment
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await Self_Assessment.update(req.body, { where: { assessment_id: req.params.id } });
-    updated ? res.json({ message: 'Assessment updated' }) : res.status(404).json({ error: 'Assessment not found' });
+    const [updatedCount] = await Self_Assessment.update(req.body, {
+      where: { assessment_id: req.params.id, user_id: req.userId }
+    });
+
+    if (!updatedCount) {
+      return sendError(res, 'Assessment not found', 404, 'NOT_FOUND');
+    }
+
+    const assessment = await Self_Assessment.findOne({ where: { assessment_id: req.params.id, user_id: req.userId } });
+    return sendSuccess(res, 'Assessment updated successfully', assessment);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update assessment' });
+    return sendError(res, 'Failed to update assessment');
   }
 });
 
-// Delete a self assessment
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Self_Assessment.destroy({ where: { assessment_id: req.params.id } });
-    deleted ? res.json({ message: 'Assessment deleted' }) : res.status(404).json({ error: 'Assessment not found' });
+    const deleted = await Self_Assessment.destroy({ where: { assessment_id: req.params.id, user_id: req.userId } });
+
+    if (!deleted) {
+      return sendError(res, 'Assessment not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Assessment deleted successfully', null);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete assessment' });
+    return sendError(res, 'Failed to delete assessment');
   }
 });
 

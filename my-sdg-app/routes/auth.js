@@ -1,52 +1,77 @@
 // routes/auth.js
 const express = require('express');
-const router = express.Router();
-const { Users } = require('../models'); // Assuming Users model is in models/user.js
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken'); // For JWT authentication
+const jwt = require('jsonwebtoken');
+const { Users } = require('../models');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Register route
+const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-env';
+
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return sendError(res, 'Name, email, and password are required', 400, 'VALIDATION_ERROR');
+    }
+
+    const existing = await Users.findOne({ where: { email } });
+    if (existing) {
+      return sendError(res, 'Email is already registered', 409, 'EMAIL_TAKEN');
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await Users.create({ name, email, password: hashedPassword });
 
-    const user = await Users.create({
-      username,
-      email,
-      password: hashedPassword,
-    });
-
-    res.status(201).json({ message: 'User registered successfully', user });
+    return sendSuccess(
+      res,
+      'User registered successfully',
+      { id: user.id, name: user.name, email: user.email },
+      201
+    );
   } catch (error) {
     console.error('Error during registration:', error);
-    res.status(500).json({ error: 'Failed to register user' });
+    return sendError(res, 'Failed to register user');
   }
 });
 
-
-// Login route
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    // Username is actually the email sent from frontend
-    const user = await Users.findOne({ where: { email: username } });
-    if (user && await bcrypt.compare(password, user.password)) {
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ message: 'Login successful', token, userId: user.id });
-    } else {
-      res.status(401).json({ error: 'Invalid credentials' });
+    const { username, email, password } = req.body;
+    const loginEmail = email || username;
+
+    if (!loginEmail || !password) {
+      return sendError(res, 'Email and password are required', 400, 'VALIDATION_ERROR');
     }
+
+    const user = await Users.findOne({ where: { email: loginEmail } });
+    if (!user) {
+      return sendError(res, 'Invalid credentials', 401, 'INVALID_CREDENTIALS');
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return sendError(res, 'Invalid credentials', 401, 'INVALID_CREDENTIALS');
+    }
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+
+    return sendSuccess(res, 'Login successful', {
+      token,
+      userId: user.id,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to login' });
+    return sendError(res, 'Failed to login');
   }
 });
 
-// Logout route
-router.post('/logout', (req, res) => {
-  // Here you can handle logout by removing the JWT token on the frontend
-  res.json({ message: 'Logged out successfully' });
-});
+router.post('/logout', (req, res) => sendSuccess(res, 'Logged out successfully', null));
 
 module.exports = router;

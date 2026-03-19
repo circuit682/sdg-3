@@ -1,54 +1,70 @@
 const express = require('express');
-const router = express.Router();
 const { Resources } = require('../models');
+const authenticate = require('../middleware/authenticate');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Get all resources
+const router = express.Router();
+
+router.use(authenticate);
+
 router.get('/', async (req, res) => {
   try {
-    const resources = await Resources.findAll();
-    res.json(resources);
+    const resources = await Resources.findAll({ order: [['createdAt', 'DESC']] });
+    return sendSuccess(res, 'Resources retrieved successfully', resources);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve resources' });
+    return sendError(res, 'Failed to retrieve resources');
   }
 });
 
-// Get a single resource by ID
 router.get('/:id', async (req, res) => {
   try {
     const resource = await Resources.findByPk(req.params.id);
-    resource ? res.json(resource) : res.status(404).json({ error: 'Resource not found' });
+
+    if (!resource) {
+      return sendError(res, 'Resource not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Resource retrieved successfully', resource);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve resource' });
+    return sendError(res, 'Failed to retrieve resource');
   }
 });
 
-// Create a new resource
 router.post('/', async (req, res) => {
   try {
     const resource = await Resources.create(req.body);
-    res.status(201).json(resource);
+    return sendSuccess(res, 'Resource created successfully', resource, 201);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create resource' });
+    return sendError(res, 'Failed to create resource');
   }
 });
 
-// Update a resource
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await Resources.update(req.body, { where: { resource_id: req.params.id } });
-    updated ? res.json({ message: 'Resource updated' }) : res.status(404).json({ error: 'Resource not found' });
+    const [updatedCount] = await Resources.update(req.body, { where: { resource_id: req.params.id } });
+
+    if (!updatedCount) {
+      return sendError(res, 'Resource not found', 404, 'NOT_FOUND');
+    }
+
+    const resource = await Resources.findByPk(req.params.id);
+    return sendSuccess(res, 'Resource updated successfully', resource);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update resource' });
+    return sendError(res, 'Failed to update resource');
   }
 });
 
-// Delete a resource
 router.delete('/:id', async (req, res) => {
   try {
     const deleted = await Resources.destroy({ where: { resource_id: req.params.id } });
-    deleted ? res.json({ message: 'Resource deleted' }) : res.status(404).json({ error: 'Resource not found' });
+
+    if (!deleted) {
+      return sendError(res, 'Resource not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'Resource deleted successfully', null);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete resource' });
+    return sendError(res, 'Failed to delete resource');
   }
 });
 

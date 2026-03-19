@@ -1,82 +1,101 @@
 const bcrypt = require('bcrypt');
 const express = require('express');
-const router = express.Router();
 const { Users } = require('../models');
+const authenticate = require('../middleware/authenticate');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Get all users
-router.get('/', async (req, res) => {
+const router = express.Router();
+
+router.get('/:id', authenticate, async (req, res) => {
   try {
-    const users = await Users.findAll();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve users' });
-  }
-});
-
-// Get a single user by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const user = await Users.findByPk(req.params.id);
-    user ? res.json(user) : res.status(404).json({ error: 'User not found' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve user' });
-  }
-});
-
-// Create a new user
-router.post('/', async (req, res) => {
-  try {
-    console.log('Request Body:', req.body);
-
-    // Ensure all required fields are present
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
+    const userId = Number(req.params.id);
+    if (req.userId !== userId) {
+      return sendError(res, 'Forbidden user access', 403, 'FORBIDDEN');
     }
 
-    // Hash the password before saving it
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await Users.findByPk(userId, {
+      attributes: { exclude: ['password'] }
+    });
 
-    // Create the user in the database
+    if (!user) {
+      return sendError(res, 'User not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'User retrieved successfully', user);
+  } catch (error) {
+    return sendError(res, 'Failed to retrieve user');
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return sendError(res, 'Name, email, and password are required', 400, 'VALIDATION_ERROR');
+    }
+
+    const existing = await Users.findOne({ where: { email } });
+    if (existing) {
+      return sendError(res, 'Email is already registered', 409, 'EMAIL_TAKEN');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await Users.create({
       name,
       email,
-      password: hashedPassword,
+      password: hashedPassword
     });
 
-    // Respond with success
-    res.status(201).json({ message: 'User registered successfully', user });
+    return sendSuccess(res, 'User registered successfully', {
+      id: user.id,
+      name: user.name,
+      email: user.email
+    }, 201);
   } catch (error) {
     console.error('Error during registration:', error);
-    res.status(500).json({ error: 'Failed to create user' });
+    return sendError(res, 'Failed to create user');
   }
 });
 
-// Update a user
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, async (req, res) => {
   try {
-    const updated = await Users.update(req.body, { where: { user_id: req.params.id } });
-    updated ? res.json({ message: 'User updated' }) : res.status(404).json({ error: 'User not found' });
+    const userId = Number(req.params.id);
+    if (req.userId !== userId) {
+      return sendError(res, 'Forbidden user access', 403, 'FORBIDDEN');
+    }
+
+    const { password, ...safeUpdates } = req.body;
+    const [updatedCount] = await Users.update(safeUpdates, { where: { id: userId } });
+
+    if (!updatedCount) {
+      return sendError(res, 'User not found', 404, 'NOT_FOUND');
+    }
+
+    const user = await Users.findByPk(userId, { attributes: { exclude: ['password'] } });
+    return sendSuccess(res, 'User updated successfully', user);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update user' });
+    return sendError(res, 'Failed to update user');
   }
 });
 
-// Delete a user
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const deleted = await Users.destroy({ where: { user_id: req.params.id } });
-    deleted ? res.json({ message: 'User deleted' }) : res.status(404).json({ error: 'User not found' });
+    const userId = Number(req.params.id);
+    if (req.userId !== userId) {
+      return sendError(res, 'Forbidden user access', 403, 'FORBIDDEN');
+    }
+
+    const deleted = await Users.destroy({ where: { id: userId } });
+    if (!deleted) {
+      return sendError(res, 'User not found', 404, 'NOT_FOUND');
+    }
+
+    return sendSuccess(res, 'User deleted successfully', null);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete user' });
+    return sendError(res, 'Failed to delete user');
   }
 });
 
 module.exports = router;
-//     const deleted = await Users.destroy({ where: { user_id: req.params.id } });
-//     deleted ? res.json({ message: 'User deleted' }) : res.status(404).json({ error: 'User not found' });
-//   } catch (error) {
-//     res.status(500).json({ error: 'Failed to delete user' });
-//   }
-// });
 
