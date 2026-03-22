@@ -1,19 +1,24 @@
 const BASE_URL = `${window.location.origin}/api`;
+let authMessageTimer = null;
 
 function showMessage(message, isSuccess = true) {
     const messageDiv = document.getElementById('message');
     if (!messageDiv) return;
 
-    messageDiv.style.display = 'block';
-    messageDiv.style.background = isSuccess ? '#e7f9ef' : '#fdecec';
-    messageDiv.style.color = isSuccess ? '#1f7a4d' : '#b42318';
-    messageDiv.style.borderRadius = '8px';
-    messageDiv.style.padding = '0.7rem 0.9rem';
-    messageDiv.style.marginBottom = '1rem';
-    messageDiv.innerText = message;
+    if (authMessageTimer) {
+        clearTimeout(authMessageTimer);
+    }
 
-    setTimeout(() => {
+    messageDiv.className = `auth-flash ${isSuccess ? 'success-state' : 'error-state'}`;
+    messageDiv.textContent = message;
+    messageDiv.style.display = 'block';
+    messageDiv.setAttribute('aria-live', 'polite');
+
+    authMessageTimer = setTimeout(() => {
         messageDiv.style.display = 'none';
+        messageDiv.className = '';
+        messageDiv.textContent = '';
+        authMessageTimer = null;
     }, 3000);
 }
 
